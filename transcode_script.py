@@ -8,7 +8,7 @@ import shlex
 ffmpegPath = 'ffmpeg'
 ffprobePath = 'ffprobe'
 ffprobeCmd = ffprobePath + ' -loglevel quiet -print_format json -show_format -show_streams -show_error -i '
-ffmpegCmd = ffmpegPath + ' -i "IN_FILE" -c:v libx264 -crf 20 -tune FF_TUNE -c:a copy -scodec copy MAPPINGS "OUT_FILE"'
+ffmpegCmd = ffmpegPath + ' -i "IN_FILE" -c:v libx264 -crf 20 -tune FF_TUNE -c:a copy -scodec copy MAPPINGS -max_muxing_queue_size 1000 "OUT_FILE"'
 
 vidExtensions = ['mp4','mkv','mov','mxf','m4v','avi','wmv']
 outExtenstion = 'mkv'
