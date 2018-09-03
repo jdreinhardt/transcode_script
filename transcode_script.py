@@ -4,6 +4,7 @@ import subprocess
 import json
 import getopt
 import shlex
+import re
 
 ffmpegPath = 'ffmpeg'
 ffprobePath = 'ffprobe'
@@ -108,6 +109,15 @@ def checkExcludes(files, excludes):
             if (file[0].find(path) != -1):
                 files.remove(file)
 
+def regexMatch(files, regex):
+    matched = []
+    for file in files:
+        filename = os.path.basename(file[0])
+        result = re.match(regex, filename, re.I)
+        if result:
+            matched.append(file)
+    return matched
+
 def getSubFolder(dirpath, filepath, file):
     subpath = filepath
     subpath = subpath.replace(dirpath, '', 1)
@@ -133,12 +143,13 @@ def main(argv):
     output = ""
     excludes = []
     tune = 'film'
+    regex = ""
     directory = False
     executeCmd = True
     flatten = False
 
     try:
-        opts, args = getopt.getopt(argv, "hdgfi:o:e:t:", ["help","directory","generate-only","flatten","input","output","exclude","tune"])
+        opts, args = getopt.getopt(argv, "hdgfi:o:e:t:r:", ["help","directory","generate-only","flatten","input","output","exclude","tune","regex"])
     except getopt.GetoptError as err:
         print(str(err))
         usage()
@@ -159,6 +170,8 @@ def main(argv):
             excludes.append(a)
         elif o in ("-g", "--generate-only"):
             executeCmd = False
+        elif o in ("-r", "--regex"):
+            regex = a
         elif o in ("-f", "--flatten"):
             flatten = True
         elif o in ("-d", "--directory"):
@@ -183,14 +196,19 @@ def main(argv):
     if (tune == ""):
         tune == 'film'
 
-    inputCount = getFiles(inputs)
-    if (inputCount == 0):
+    getFiles(inputs)
+    if (len(files) == 0):
         print('No valid inputs found')
         usage()
         sys.exit(2)
 
     if (len(excludes) != 0):
         checkExcludes(files, excludes)
+        if (regex != ""):
+            matched = regexMatch(files, regex)
+            del files[:]
+            for i in matched:
+                files.append(i)
     
     generateCommands(files, output, directory, flatten, tune)
     
@@ -215,6 +233,7 @@ def usage():
     -i    Input file or folder (required)
     -o    Output folder path (required)
     -e    Exclude a folder from search
+    -r    Regex select files from folder. Perl style. Must be in ''
     """
     print(usage)
 
