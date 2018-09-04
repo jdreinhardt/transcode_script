@@ -14,15 +14,15 @@ No additional libraries or modules required
 
 #### Usage
 ```
-    -d    Place each file in a separate directory. Will also flatten
+    -d    Place each file in a separate directory in the single specified ouput
     -g    Generate commands only. Do not execute
-    -f    Flatten found folder to single output directory
+    -s    Flatten found folder to single output directory
     -t    Specify x264 tuning parameter. Default = film
 
     -i    Input file or folder (required)
     -o    Output folder path (required)
     -e    Exclude a folder from search
-    -r    Regex select files from folder. Perl style. Must be in ''
+    -f    Regex select files from folder. Perl style. Must be in ''
 ```
 Script expects ffmpeg and ffprobe to be in $PATH. If they are not you will need to specify their location at the top of the script.
 
@@ -37,11 +37,11 @@ FFmpeg transcode command can also be updated as desired. IN_FILE, OUT_FILE, MAPP
 This will generate the ffmpeg commands using a separate subdirectory for each file on output. No conversion will be done in this case because of the `-g` flag. Removing that would then run the commmands.
 
 ```
-    python transcode_script.py -dg -i /Users/jdreinhardt/Desktop/test -o /Users/jdreinhardt/Desktop/converted -r '^(?:X)'
+    python transcode_script.py -dg -i /Users/jdreinhardt/Desktop/test -o /Users/jdreinhardt/Desktop/converted -f '^(?:X)'
 ```
 This is the same as the previous example with the addition of a regular expression to filter which files are included in the conversion. In this example only files beginning with X will be included.
 
 ```
-    python transcode_script.py -i /Users/jdreinhardt/Desktop/test -o /Users/jdreinhardt/Desktop/converted -e /Users/jdreinhardt/Desktop/test/skip -f
+    python transcode_script.py -i /Users/jdreinhardt/Desktop/test -o /Users/jdreinhardt/Desktop/converted -e /Users/jdreinhardt/Desktop/test/skip -s
 ```
 This will generate and run all ffmpeg commands generated for files found in the test directory, but it will not include any files found in the test/skip folder allowing for more flexibility in usage. This will flatten any heirarchy found to output all files inside the single directory.

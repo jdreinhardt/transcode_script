@@ -23,10 +23,7 @@ def generateCommands(files, output, directory, flatten, tune):
     '''
     for file in files:
         outpath = output
-        cmd = ffmpegCmd
-        cmd = cmd.replace('IN_FILE', file[0])
-        cmd = cmd.replace('FF_TUNE', tune)
-        cmd = cmd.replace('MAPPINGS', mappingString(getMetadata(file[0])))
+        cmd = parseCommandParameters(ffmpegCmd, file, tune)
         filename = os.path.splitext(os.path.basename(file[0]))[0]
         if (directory):
             outpath = os.path.join(output, filename)
@@ -39,6 +36,17 @@ def generateCommands(files, output, directory, flatten, tune):
             outpath = os.path.join(outpath, filename + '.' + outExtenstion)
         cmd = cmd.replace('OUT_FILE', outpath)
         commands.append(cmd)
+
+def parseCommandParameters(cmd, file, tune):
+    if ('IN_FILE' in cmd):
+        cmd = cmd.replace('IN_FILE', file[0])
+    else:
+        print('IN_FILE not found in ffmpegCmd')
+    if ('FF_TUNE' in cmd):
+        cmd = cmd.replace('FF_TUNE', tune)
+    if ('MAPPINGS' in cmd):
+        cmd = cmd.replace('MAPPINGS', mappingString(getMetadata(file[0])))
+    return cmd
 
 def mappingString(count):
     string = ""
@@ -149,7 +157,7 @@ def main(argv):
     flatten = False
 
     try:
-        opts, args = getopt.getopt(argv, "hdgfi:o:e:t:r:", ["help","directory","generate-only","flatten","input","output","exclude","tune","regex"])
+        opts, args = getopt.getopt(argv, "hdgsi:o:e:t:f:", ["help","directory","generate-only","flatten","input","output","exclude","tune","filter"])
     except getopt.GetoptError as err:
         print(str(err))
         usage()
@@ -170,9 +178,9 @@ def main(argv):
             excludes.append(a)
         elif o in ("-g", "--generate-only"):
             executeCmd = False
-        elif o in ("-r", "--regex"):
+        elif o in ("-f", "--filter"):
             regex = a
-        elif o in ("-f", "--flatten"):
+        elif o in ("-s", "--flatten"):
             flatten = True
         elif o in ("-d", "--directory"):
             directory = True
