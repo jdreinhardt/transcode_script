@@ -14,15 +14,17 @@ No additional libraries or modules required
 
 #### Usage
 ```
-    -d    Place each file in a separate directory in the single specified ouput
+    -d    Place each file in a separate directory. Will also flatten
     -g    Generate commands only. Do not execute
     -s    Flatten found folder to single output directory
     -t    Specify x264 tuning parameter. Default = film
+    -q    Specify quality to use for CRF value (0-53). Default = 20
+    -v    Specify a simple video filter
 
     -i    Input file or folder (required)
     -o    Output folder path (required)
     -e    Exclude a folder from search
-    -f    Regex select files from folder. Perl style. Must be in ''
+    -f    Regex select files from folder. Perl style. ie "(?:test)"
 ```
 Script expects ffmpeg and ffprobe to be in $PATH. If they are not you will need to specify their location at the top of the script.
 
