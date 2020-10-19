@@ -9,21 +9,21 @@ import re
 ffmpegPath = 'ffmpeg'
 ffprobePath = 'ffprobe'
 ffprobeCmd = ffprobePath + ' -loglevel quiet -print_format json -show_format -show_streams -show_error -i '
-ffmpegCmd = ffmpegPath + ' -i "IN_FILE" -c:v libx264 -crf 20 -tune FF_TUNE -c:a copy -scodec copy MAPPINGS -max_muxing_queue_size 1000 "OUT_FILE"'
+ffmpegCmd = ffmpegPath + ' -i "IN_FILE" -c:v libx264 -crf FF_QUALITY -tune FF_TUNE FF_VFILTERS -c:a copy -scodec copy MAPPINGS ATMOS "OUT_FILE"'
 
-vidExtensions = ['mp4','mkv','mov','mxf','m4v','avi','wmv']
+vidExtensions = ['mp4','mkv','mov','mxf','m4v','avi','wmv','ts']
 outExtenstion = 'mkv'
 
 files = []
 commands = []
 
-def generateCommands(files, output, directory, flatten, tune):
+def generateCommands(files, output, directory, flatten, tune, quality, videoFilter):
     '''
     Generate full ffmpeg command to be executed. Will be run using external binary
     '''
     for file in files:
         outpath = output
-        cmd = parseCommandParameters(ffmpegCmd, file, tune)
+        cmd = parseCommandParameters(ffmpegCmd, file, tune, quality, videoFilter)
         filename = os.path.splitext(os.path.basename(file[0]))[0]
         if (directory):
             outpath = os.path.join(output, filename)
@@ -37,15 +37,26 @@ def generateCommands(files, output, directory, flatten, tune):
         cmd = cmd.replace('OUT_FILE', outpath)
         commands.append(cmd)
 
-def parseCommandParameters(cmd, file, tune):
+def parseCommandParameters(cmd, file, tune, quality, videoFilter):
+    metadata = getMetadata(file[0])
     if ('IN_FILE' in cmd):
         cmd = cmd.replace('IN_FILE', file[0])
     else:
         print('IN_FILE not found in ffmpegCmd')
     if ('FF_TUNE' in cmd):
         cmd = cmd.replace('FF_TUNE', tune)
+    if ('FF_QUALITY' in cmd):
+        cmd = cmd.replace('FF_QUALITY', quality)
+    if ('FF_VFILTERS' in cmd):
+        cmd = cmd.replace('FF_VFILTERS', videoFilter)
     if ('MAPPINGS' in cmd):
-        cmd = cmd.replace('MAPPINGS', mappingString(getMetadata(file[0])))
+        cmd = cmd.replace('MAPPINGS', mappingString(metadata['format']['nb_streams']))
+    if ('ATMOS' in cmd):
+        for stream in metadata['streams']:
+            if (stream['codec_name'] == 'truehd'):
+                cmd = cmd.replace('ATMOS', '-max_muxing_queue_size 1000')
+        if ('ATMOS' in cmd):
+            cmd = cmd.replace('ATMOS', '')
     return cmd
 
 def mappingString(count):
@@ -60,7 +71,7 @@ def getMetadata(file):
         jsonObj = json.loads(results.decode('utf-8'))
     else:
         jsonObj = json.loads(results)
-    return jsonObj['format']['nb_streams']
+    return jsonObj
 
 def osCommand(bashCommand):
     if (sys.platform == 'darwin'):
@@ -90,7 +101,7 @@ def getFiles(argv):
 def parseFile(file):
     item = []
     for ext in vidExtensions:
-        if (file[-3:] == ext):
+        if (os.path.splitext(file)[1][1:] == ext):
             item.append(file)
             item.append('')
             break
@@ -99,12 +110,12 @@ def parseFile(file):
 def parseDirectory(directory):
     found = []
     for root, dirs, files in os.walk(directory):
-        for name in files:
+        for filename in files:
             for ext in vidExtensions:
-                if (name[-3:] == ext):
+                if (os.path.splitext(filename)[1][1:] == ext):
                     item = []
-                    filepath = os.path.join(root, name)
-                    subpath = getSubFolder(directory, filepath, name)
+                    filepath = os.path.join(root, filename)
+                    subpath = getSubFolder(directory, filepath, filename)
                     item.append(filepath)
                     item.append(subpath)
                     found.append(item)
@@ -121,7 +132,7 @@ def regexMatch(files, regex):
     matched = []
     for file in files:
         filename = os.path.basename(file[0])
-        result = re.match(regex, filename, re.I)
+        result = re.search(regex, filename, re.I)
         if result:
             matched.append(file)
     return matched
@@ -151,13 +162,15 @@ def main(argv):
     output = ""
     excludes = []
     tune = 'film'
+    quality = '20'
+    videoFilter = ""
     regex = ""
     directory = False
     executeCmd = True
     flatten = False
 
     try:
-        opts, args = getopt.getopt(argv, "hdgsi:o:e:t:f:", ["help","directory","generate-only","flatten","input","output","exclude","tune","filter"])
+        opts, args = getopt.getopt(argv, "hdgsi:o:e:t:f:q:v:", ["help","directory","generate-only","flatten","input","output","exclude","tune","filter","quality","video-filter"])
     except getopt.GetoptError as err:
         print(str(err))
         usage()
@@ -186,8 +199,11 @@ def main(argv):
             directory = True
             flatten = True
         elif o in ("-t", "--tune"):
-            print('tune in:' + a + ':')
             tune = a
+        elif o in ("-q", "--quality"):
+            quality = a
+        elif o in ("-v", "--video-filter"):
+            videoFilter = '-vf ' + a
         else:
             assert False, "unhandled option"
 
@@ -210,15 +226,15 @@ def main(argv):
         usage()
         sys.exit(2)
 
-    if (len(excludes) != 0):
-        checkExcludes(files, excludes)
-        if (regex != ""):
-            matched = regexMatch(files, regex)
-            del files[:]
-            for i in matched:
-                files.append(i)
+    if (regex != ""):
+        if (len(excludes) != 0):
+            checkExcludes(files, excludes)
+        matched = regexMatch(files, regex)
+        del files[:]
+        for i in matched:
+            files.append(i)
     
-    generateCommands(files, output, directory, flatten, tune)
+    generateCommands(files, output, directory, flatten, tune, quality, videoFilter)
     
     if (executeCmd):
         runCommands()
@@ -235,13 +251,15 @@ def usage():
 
     -d    Place each file in a separate directory. Will also flatten
     -g    Generate commands only. Do not execute
-    -f    Flatten found folder to single output directory
+    -s    Flatten found folder to single output directory
     -t    Specify x264 tuning parameter. Default = film
+    -q    Specify quality to use for CRF value (0-53). Default = 20
+    -v    Specify a simple video filter
 
     -i    Input file or folder (required)
     -o    Output folder path (required)
     -e    Exclude a folder from search
-    -r    Regex select files from folder. Perl style. Must be in ''
+    -f    Regex select files from folder. Perl style. ie "(?:test)"
     """
     print(usage)
 
